@@ -65,7 +65,7 @@ const ChatArea = () => {
     activeChat
   } = useChatContext();
   const [chatData, setChatData] = useState(null);
-  const currentUserId = Number(localStorage.getItem('user_id'));
+  const currentUserId = Number(localStorage.getItem('userId'));
   const messageSchema = yup.object({
     newMessage: yup.string().required('Please enter message')
   });

@@ -1,7 +1,7 @@
 from django.contrib import admin
 
 # from .models import Note 
-from .models import User,UserFollower, Post, Comment, File, Chat
+from .models import User,UserFollower, Post, Comment, File, Chat, Like, Notification
 
 # Register your models here.
 
@@ -18,3 +18,5 @@ admin.site.register(Post)
 admin.site.register(Comment)
 admin.site.register(File)
 admin.site.register(Chat)
+admin.site.register(Like)
+admin.site.register(Notification)

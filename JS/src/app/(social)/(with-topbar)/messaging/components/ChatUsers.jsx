@@ -8,7 +8,8 @@ const ChatItem = ({ chat, currentUserId }) => {
   const { changeActiveChat, activeChat } = useChatContext();
 
   const otherUser = chat.participant_1.id === currentUserId ? chat.participant_2 : chat.participant_1;
-
+  console.log("currentUserIdTEST", currentUserId);
+  console.log("otherUserTEST", otherUser);
   return (
     <li onClick={() => changeActiveChat(chat)} data-bs-dismiss="offcanvas">
       <div
@@ -22,7 +23,7 @@ const ChatItem = ({ chat, currentUserId }) => {
             <img
               className="avatar-img rounded-circle"
               src={`${import.meta.env.VITE_API_URL}${otherUser.profile_picture}`}
-              alt=""
+              alt="SELAM"
               onError={(e) => e.currentTarget.src = '/default-avatar.jpg'}
             />
           </div>
@@ -42,7 +43,7 @@ const ChatUsers = ({ chats }) => {
     setUsers(chats || []);
   }, [chats]);
 
-  const currentUserId = Number(localStorage.getItem('user_id'));
+  const currentUserId = Number(localStorage.getItem('userId'));
 
   const search = (text) => {
     const cleaned = text.trim();

@@ -16,4 +16,7 @@ urlpatterns = [
     path('posts/<int:post_id>/files/', views.FileUploadView.as_view(), name='file-upload'),
     path('followers/', views.UserFollowerListCreate.as_view(), name='user-followers'),
     path('unfollow/<int:user_id>/', views.UserUnfollow.as_view(), name='user-unfollow'),
+    path('posts/<int:post_id>/like/', views.LikePostView.as_view(), name='post-like'),
+    path('notifications/', views.NotificationListView.as_view(), name='notification-list'),
+    path('notifications/<int:pk>/mark-read/', views.NotificationMarkAsReadView.as_view(), name='notification-mark-read'),
 ]

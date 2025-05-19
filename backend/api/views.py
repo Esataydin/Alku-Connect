@@ -10,11 +10,11 @@ from django.db.models import Q
 
 from datetime import datetime
 
-from .models import User, Post, Comment, Chat, File
+from .models import User, Post, Comment, Chat, File, Like, Notification
 from .models import UserFollower
 
 from .serializers import UserSerializer
-from .serializers import PostSerializer, CommentSerializer, ChatSerializer
+from .serializers import PostSerializer, CommentSerializer, ChatSerializer, LikeSerializer, NotificationSerializer
 from .serializers import UserFollowerSerializer, FileSerializer, FileUploadSerializer, FileListSerializer, UserProfileFeedSerializer
 
 from .custom_permissions import IsProfileOwner, IsAuthor, IsPostOwner
@@ -23,6 +23,7 @@ from .custom_permissions import IsProfileOwner, IsAuthor, IsPostOwner
 
 class UserList(generics.ListAPIView):
     serializer_class = UserSerializer
+    # serializer_class = UserProfileFeedSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
@@ -74,11 +75,25 @@ class PostListCreate(generics.ListCreateAPIView):
         user = self.request.user
         return Post.objects.all()
     
-    def perform_create(self, serializer):
-        if serializer.is_valid():
-            serializer.save(author=self.request.user)
-        else:
-            print(serializer.errors)
+    def create(self, request, *args, **kwargs):
+        # First create the post
+        post_serializer = self.get_serializer(data=request.data)
+        post_serializer.is_valid(raise_exception=True)
+        post = post_serializer.save(author=request.user)
+
+        # Handle file uploads if any
+        files = request.FILES.getlist('files')
+        if files:
+            file_data = [{'file': file, 'post': post.id} for file in files]
+            file_serializer = FileUploadSerializer(data={'files': file_data})
+            if file_serializer.is_valid():
+                file_serializer.create(file_serializer.validated_data)
+
+        # Return the created post with its files
+        return Response(
+            self.get_serializer(post).data,
+            status=status.HTTP_201_CREATED
+        )
 
 class PostDelete(generics.DestroyAPIView):
     serializer_class = PostSerializer
@@ -110,7 +125,18 @@ class CommentListCreate(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         post = self.get_post()
         if serializer.is_valid():
-            serializer.save(author=self.request.user, post= post)
+            comment = serializer.save(author=self.request.user, post=post)
+            
+            # Create notification for post author
+            if post.author != self.request.user:  # Don't notify if user comments on their own post
+                create_notification(
+                    sender=self.request.user,
+                    recipient=post.author,
+                    notification_type='comment',
+                    content=f"{self.request.user.name} commented on your post",
+                    post=post,
+                    comment=comment
+                )
         else:
             print(serializer.errors)
 
@@ -182,7 +208,6 @@ class ChatListCreate(generics.ListCreateAPIView):
 class ChatListUpdate(generics.RetrieveUpdateAPIView):
     serializer_class = ChatSerializer
     permission_classes = [IsAuthenticated]
-    # TODO: If tries to update another user's chat, it should return 403
     def get_queryset(self):
         user = self.request.user
         chat_pk = self.kwargs["pk"]
@@ -194,7 +219,7 @@ class ChatListUpdate(generics.RetrieveUpdateAPIView):
             if len(chat) == 0:
                 return None
         return chat
-
+    # TODO: If tries to update another user's chat, it should return 403
     def perform_update(self, serializer):
         chat = self.get_queryset()[0]
         
@@ -209,8 +234,17 @@ class ChatListUpdate(generics.RetrieveUpdateAPIView):
             "body": message
         }
         chat.messages[time] = new_message
-        chat.lastMessage = message  # Update lastMessage with the new message text
+        chat.lastMessage = message
         chat.save()
+        
+        # Create notification for the other participant
+        recipient = chat.participant_2 if chat.participant_1 == self.request.user else chat.participant_1
+        create_notification(
+            sender=self.request.user,
+            recipient=recipient,
+            notification_type='message',
+            content=f"{self.request.user.name} sent you a message"
+        )
         
         # Return updated chat data through serializer
         updated_chat = Chat.objects.get(pk=chat.pk)
@@ -237,7 +271,6 @@ class UserFollowerListCreate(generics.ListCreateAPIView):
         return UserFollower.objects.filter(user=user)
     
     def create(self, request, *args, **kwargs):
-        # Get the user to follow
         user_to_follow = request.data.get('user')
         
         # Check if already following
@@ -259,6 +292,15 @@ class UserFollowerListCreate(generics.ListCreateAPIView):
         })
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
+
+        # Create notification
+        user = User.objects.get(id=user_to_follow)
+        create_notification(
+            sender=request.user,
+            recipient=user,
+            notification_type='follow',
+            content=f"{request.user.name} started following you"
+        )
         
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     
@@ -310,3 +352,83 @@ class FileUploadView(APIView):
         files = File.objects.filter(post=post)
         serializer = FileSerializer(files, many=True)
         return Response(serializer.data)
+
+class LikePostView(generics.CreateAPIView, generics.DestroyAPIView):
+    serializer_class = LikeSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Like.objects.filter(user=self.request.user)
+
+    def create(self, request, *args, **kwargs):
+        post_id = kwargs.get('post_id')
+        try:
+            post = Post.objects.get(id=post_id)
+            # Check if like already exists
+            if Like.objects.filter(user=request.user, post=post).exists():
+                return Response(
+                    {"error": "Post already liked"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            like = Like.objects.create(user=request.user, post=post)
+            
+            # Create notification for post author
+            if post.author != request.user:  # Don't notify if user likes their own post
+                create_notification(
+                    sender=request.user,
+                    recipient=post.author,
+                    notification_type='like',
+                    content=f"{request.user.name} liked your post",
+                    post=post
+                )
+            
+            serializer = self.get_serializer(like)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        except Post.DoesNotExist:
+            return Response(
+                {"error": "Post not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+    def delete(self, request, *args, **kwargs):
+        post_id = kwargs.get('post_id')
+        try:
+            like = Like.objects.get(user=request.user, post_id=post_id)
+            like.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except Like.DoesNotExist:
+            return Response(
+                {"error": "Like not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+class NotificationListView(generics.ListAPIView):
+    serializer_class = NotificationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Notification.objects.filter(recipient=self.request.user)
+
+class NotificationMarkAsReadView(generics.UpdateAPIView):
+    serializer_class = NotificationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Notification.objects.filter(recipient=self.request.user)
+
+    def update(self, request, *args, **kwargs):
+        notification = self.get_object()
+        notification.is_read = True
+        notification.save()
+        return Response(self.get_serializer(notification).data)
+
+def create_notification(sender, recipient, notification_type, content, post=None, comment=None):
+    return Notification.objects.create(
+        sender=sender,
+        recipient=recipient,
+        notification_type=notification_type,
+        content=content,
+        post=post,
+        comment=comment
+    )
