@@ -4,9 +4,9 @@ import { Button, Card, CardBody, CardHeader, CardTitle } from 'react-bootstrap';
 import { BsPersonCheckFill } from 'react-icons/bs';
 import { FaPlus } from 'react-icons/fa';
 import { useFetchData } from '@/hooks/useFetchData';
-import { getSoUsers } from '../../../../../api/ApiService';
+import { GetFindUserData, getUserData } from '../../../../../api/ApiService';
 const Followers = () => {
-  const allFollowers = useFetchData(getSoUsers);
+  const allFollowers = useFetchData(getUserData);
   return <Card>
       <CardHeader className="pb-0 border-0">
         <CardTitle className="mb-0">Who to follow</CardTitle>

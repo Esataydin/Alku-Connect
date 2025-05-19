@@ -52,7 +52,7 @@ import background5 from '@/assets/images/bg/05.jpg';
 import { Link, useLocation } from "react-router-dom";
 import FallbackLoading from "@/components/FallbackLoading";
 import Preloader from "@/components/Preloader";
-import { GetId } from '@/utils/GetId';
+import { useId } from '@/utils/useId';
 
 const Friends = () => {
   const allFriends = useFetchData(getAllUsers);

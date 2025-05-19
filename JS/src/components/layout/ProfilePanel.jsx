@@ -70,14 +70,14 @@ const ProfilePanel = ({
 
           <hr />
 
-          {/* <ul className="nav nav-link-secondary flex-column fw-bold gap-2">
+           <ul className="nav nav-link-secondary flex-column fw-bold gap-2">
             {links.map((item, idx) => <li key={item.name + idx} className="nav-item">
                 <Link className="nav-link" to={item.link}>
                   <img src={item.image} alt="icon" height={20} width={20} className="me-2 h-20px fa-fw" />
                   <span>{item.name} </span>
                 </Link>
               </li>)}
-          </ul> */}
+          </ul> 
         </CardBody>
 
         <CardFooter className="text-center py-2">

@@ -5,13 +5,13 @@ import { Button, Card, CardBody, CardHeader, CardTitle } from 'react-bootstrap';
 import { BsPersonCheckFill } from 'react-icons/bs';
 import { FaPlus } from 'react-icons/fa';
 import { useEffect, useState } from 'react';
-import { getFeedUsers, getSoUsers } from '../../../../../api/ApiService';
+import { getFeedUsers, GetUsersData } from '../../../../../api/ApiService';
 const Followers = () => {
   const [data, setData] = useState();
   const [userId, setUserId] = useState();
   useEffect(() => {
     const fetchData = async () => {
-      const response = await getSoUsers();
+      const response = await GetUsersData();
       if (response) {
        setData(response);
       }

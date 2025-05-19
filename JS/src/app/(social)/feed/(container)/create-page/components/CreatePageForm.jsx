@@ -7,9 +7,10 @@ import { useForm } from 'react-hook-form';
 import * as yup from 'yup';
 import { Button, Card, CardBody, CardHeader, Col } from 'react-bootstrap';
 import { GetFindUserData, updateUserProfile } from '@/app/api/ApiService';
-import { GetId } from '@/utils/GetId';
+import { useId } from '@/utils/useId';
 
 const CreatePageForm = () => {
+  const userId = useId();
   const [users, setUsers] = useState(null);
 
   const createFormSchema = yup.object({
@@ -34,7 +35,6 @@ const CreatePageForm = () => {
       .oneOf([true, false], 'Please select staff member status')
       .nullable()
   });
-  
 
   const {
     control,
@@ -54,14 +54,15 @@ const CreatePageForm = () => {
       job_title: '',
       working_company: '',
       work_experience: '',
-      student_id:'',
+      student_id: '',
     },
   });
 
   useEffect(() => {
+    if (!userId) return; // userId yoksa fetch yapma
+
     const fetchUsers = async () => {
       try {
-        const userId = 1;
         const response = await GetFindUserData(userId);
         setUsers(response);
 
@@ -85,19 +86,16 @@ const CreatePageForm = () => {
     };
 
     fetchUsers();
-  }, [reset]);
+  }, [userId, reset]);
 
   const onSubmit = async (formData) => {
+    if (!userId) return;
+
     try {
-      const userId = 1;
-      // Dosya inputunu al
       const file = document.querySelector('input[name="profile_picture"]')?.files[0];
-
-      // updateUserProfile fonksiyonunu çağır
       const result = await updateUserProfile(userId, formData, file);
-
-      console.log('Profile updated successfully:', result);
       alert('Profile updated successfully!');
+      console.log('Profile update result:', result);
     } catch (error) {
       console.error('Error updating profile:', error);
       alert('An error occurred while updating the profile.');
@@ -106,76 +104,72 @@ const CreatePageForm = () => {
 
   return (
     <Card>
-  <CardHeader className="border-0 pb-0">
-    <h1 className="h4 card-title mb-0">Create Profile</h1>
-  </CardHeader>
-  <CardBody>
-    <form className="row g-3" onSubmit={handleSubmit(onSubmit)}>
-      {/* Profile Picture */}
-      <Col xs={12}>
-        <label className="form-label">Profile Picture</label>
-        <input type="file" name="profile_picture" accept="image/*" className="form-control" />
-        <small>Supported formats: JPG, PNG. Max size: 5MB</small>
-      </Col>
+      <CardHeader className="border-0 pb-0">
+        <h1 className="h4 card-title mb-0">Create Profile</h1>
+      </CardHeader>
+      <CardBody>
+        <form className="row g-3" onSubmit={handleSubmit(onSubmit)}>
+          {/* Profile Picture */}
+          <Col xs={12}>
+            <label className="form-label">Profile Picture</label>
+            <input type="file" name="profile_picture" accept="image/*" className="form-control" />
+            <small>Supported formats: JPG, PNG. Max size: 5MB</small>
+          </Col>
 
-      {/* Diğer alanlar */}
-      <Col sm={6}>
-        <TextFormInput name="name" label="Name" placeholder="Enter your name" control={control} />
-      </Col>
-      <Col sm={6}>
-        <TextFormInput name="email" label="Email" placeholder="Enter your email" control={control} />
-      </Col>
-      <Col sm={6}>
-        <TextFormInput name="birthday_date" label="Birthday Date" placeholder="YYYY-MM-DD" control={control} />
-      </Col>
-      <Col sm={6}>
-        <TextFormInput name="phone_number" label="Phone Number" placeholder="Enter your phone number" control={control} />
-      </Col>
-      <Col sm={6}>
-        <TextFormInput name="faculty" label="Faculty" placeholder="Enter your faculty" control={control} />
-      </Col>
-      <Col sm={6}>
-        <TextFormInput name="department" label="Department" placeholder="Enter your department" control={control} />
-      </Col>
-      <Col sm={6}>
-        <TextFormInput name="field" label="Field" placeholder="Field of expertise" control={control} />
-      </Col>
-      <Col sm={6}>
-        <TextFormInput name="graduation_year" label="Graduation Year" placeholder="YYYY" control={control} />
-      </Col>
-      <Col sm={6}>
-        <TextFormInput name="job_title" label="Job Title" placeholder="Your current job title" control={control} />
-      </Col>
-      <Col sm={6}>
-        <TextFormInput name="working_company" label="Working Company" placeholder="Company you're working at" control={control} />
-      </Col>
+          {/* Diğer alanlar */}
+          <Col sm={6}>
+            <TextFormInput name="name" label="Name" placeholder="Enter your name" control={control} />
+          </Col>
+          <Col sm={6}>
+            <TextFormInput name="email" label="Email" placeholder="Enter your email" control={control} />
+          </Col>
+          <Col sm={6}>
+            <TextFormInput name="birthday_date" label="Birthday Date" placeholder="YYYY-MM-DD" control={control} />
+          </Col>
+          <Col sm={6}>
+            <TextFormInput name="phone_number" label="Phone Number" placeholder="Enter your phone number" control={control} />
+          </Col>
+          <Col sm={6}>
+            <TextFormInput name="faculty" label="Faculty" placeholder="Enter your faculty" control={control} />
+          </Col>
+          <Col sm={6}>
+            <TextFormInput name="department" label="Department" placeholder="Enter your department" control={control} />
+          </Col>
+          <Col sm={6}>
+            <TextFormInput name="field" label="Field" placeholder="Field of expertise" control={control} />
+          </Col>
+          <Col sm={6}>
+            <TextFormInput name="graduation_year" label="Graduation Year" placeholder="YYYY" control={control} />
+          </Col>
+          <Col sm={6}>
+            <TextFormInput name="job_title" label="Job Title" placeholder="Your current job title" control={control} />
+          </Col>
+          <Col sm={6}>
+            <TextFormInput name="working_company" label="Working Company" placeholder="Company you're working at" control={control} />
+          </Col>
+          <Col sm={6}>
+            <TextFormInput name="student_id" label="Student Number" placeholder="Enter your student number" control={control} />
+          </Col>
 
-      {/* Student Number alanı */}
-      <Col sm={6}>
-        <TextFormInput name="student_id" label="Student Number" placeholder="Enter your student number" control={control} />
-      </Col>
-      
+          <Col xs={12}>
+            <TextAreaFormInput
+              name="work_experience"
+              label="Work Experience"
+              rows={4}
+              placeholder="Describe your work experience"
+              control={control}
+            />
+            <small>Character limit: 500</small>
+          </Col>
 
-      <Col xs={12}>
-        <TextAreaFormInput
-          name="work_experience"
-          label="Work Experience"
-          rows={4}
-          placeholder="Describe your work experience"
-          control={control}
-        />
-        <small>Character limit: 500</small>
-      </Col>
-
-      <Col xs={12} className="text-end">
-        <Button variant="primary" type="submit" className="mb-0">
-          Save Profile
-        </Button>
-      </Col>
-    </form>
-  </CardBody>
-</Card>
-
+          <Col xs={12} className="text-end">
+            <Button variant="primary" type="submit" className="mb-0">
+              Save Profile
+            </Button>
+          </Col>
+        </form>
+      </CardBody>
+    </Card>
   );
 };
 

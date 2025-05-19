@@ -1,282 +1,217 @@
-import { timeSince } from '@/utils/date';
-import { Card, CardBody, CardFooter, CardHeader, Col, Dropdown, DropdownDivider, DropdownItem, DropdownMenu, DropdownToggle, Row } from 'react-bootstrap';
-import { BsBookmark, BsBookmarkCheck, BsChatFill, BsEnvelope, BsFlag, BsHandThumbsUpFill, BsLink, BsPencilSquare, BsPersonX, BsReplyFill, BsSendFill, BsShare, BsSlashCircle, BsThreeDots, BsXCircle } from 'react-icons/bs';
-import GlightBox from '../GlightBox';
-import LoadContentButton from '../LoadContentButton';
-import CommentItem from './components/CommentItem';
-import { Link } from 'react-router-dom';
-import avatar12 from '@/assets/images/avatar/12.jpg';
-import postImg3 from '@/assets/images/post/1by1/03.jpg';
-import postImg1 from '@/assets/images/post/3by2/01.jpg';
-import postImg2 from '@/assets/images/post/3by2/02.jpg';
-import VideoPlayer from './components/VideoPlayer';
-import { useEffect, useState } from 'react';
-import { CreateCommentData, GetComments } from '../../app/api/ApiService';
-import ModalComponent from './components/ModalComponent';
+import { useState } from "react";
+import {
+  Card,
+  CardBody,
+  CardFooter,
+  CardHeader,
+  Dropdown,
+  DropdownToggle,
+  DropdownMenu,
+  DropdownItem,
+  DropdownDivider,
+  Modal,
+  Button,
+  Form,
+  InputGroup,
+} from "react-bootstrap";
+import {
+  BsHeart,
+  BsHeartFill,
+  BsChatFill,
+  BsReplyFill,
+  BsBookmark,
+  BsEnvelope,
+  BsLink,
+  BsShare,
+  BsSend,
+} from "react-icons/bs";
+import { Link } from "react-router-dom";
 
-const ActionMenu = ({
-  name
-}) => {
-  return <Dropdown>
-      <DropdownToggle as="a" className="text-secondary btn btn-secondary-soft-hover py-1 px-2 content-none" id="cardFeedAction">
-        <BsThreeDots />
-      </DropdownToggle>
-
-      <DropdownMenu className="dropdown-menu-end" aria-labelledby="cardFeedAction">
-        <li>
-          <DropdownItem>
-            
-            <BsBookmark size={22} className="fa-fw pe-2" />
-            Delete post
-          </DropdownItem>
-        </li>
-        <li>
-          <DropdownItem>
-            
-            <BsPersonX size={22} className="fa-fw pe-2" />
-            Unfollow {name}
-          </DropdownItem>
-        </li>
-        <li>
-          <DropdownItem>
-            
-            <BsXCircle size={22} className="fa-fw pe-2" />
-            Hide post
-          </DropdownItem>
-        </li>
-        <li>
-          <DropdownItem>
-            
-            <BsSlashCircle size={22} className="fa-fw pe-2" />
-            Block
-          </DropdownItem>
-        </li>
-        <li>
-          <DropdownDivider />
-        </li>
-        <li>
-          <DropdownItem>
-            
-            <BsFlag size={22} className="fa-fw pe-2" />
-            Report post
-          </DropdownItem>
-        </li>
-      </DropdownMenu>
-    </Dropdown>;
-};
-const PostCard = (
-  {createdAt,
-  likesCount,
-  caption,
-  desc,
+/**
+ * PostCard – tek bir sosyal gönderi kartı
+ * - Yorum ikonuna tıklandığında Modal açılır
+ * - Mevcut yorumlar getirildikten sonra listelenir
+ * - Kullanıcı yeni yorum ekleyebilir
+ */
+const PostCard = ({
+  post_id,
   title,
+  desc,
+  image,
   name,
   date,
-  post_id,
-  comments,
-  commentsCount,
-  image,
-  socialUser,
-  photos,
-  isVideo}
-) => {
+  likesCount: initialLikes,
+  commentsCount: initialComments,
+}) => {
+  const [likes, setLikes] = useState(initialLikes);
+  const [liked, setLiked] = useState(false);
+  const [comments, setComments] = useState(initialComments);
+  const [commentList, setCommentList] = useState([]);
+  const [showComments, setShowComments] = useState(false);
+  const [newComment, setNewComment] = useState("");
+  const [sending, setSending] = useState(false);
 
-  const [created_at, setCreatedAt] = useState("");
-  const [content, setContent] = useState("");
-  const [comment, setComment] = useState([]);
+  /** Like işlemi */
+  const toggleLike = async () => {
+    setLiked(!liked);
+    setLikes((prev) => prev + (liked ? -1 : 1));
+    try {
+      await fetch(`/api/posts/${post_id}/like`, {
+        method: "POST",
+        body: JSON.stringify({ like: !liked }),
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch {
+      // geri al
+      setLiked(liked);
+      setLikes((prev) => prev + (liked ? 1 : -1));
+    }
+  };
 
-  useEffect(() => {
-    const fetchComments = async () => {
-      const response = await GetComments();
-      if (response) {
-        setComment(response);
-      }
-    };
-    
+  /** Yorumları getir */
+  const fetchComments = async () => {
+    try {
+      const res = await fetch(`/api/posts/${post_id}/comments`);
+      const data = await res.json();
+      setCommentList(data);
+      setComments(data.length);
+    } catch (_) {
+      /* hata yok say */
+    }
+  };
+
+  /** modal aç – önce yorumları getir */
+  const openComments = () => {
     fetchComments();
-  }, []);
+    setShowComments(true);
+  };
 
-  const handleCreateComment = async () => {
-    setCreatedAt(new Date().toISOString());
-    console.log("created_at", created_at);
-    console.log("contetnt", content)
-    const response = await CreateCommentData(content, created_at, post_id);
-    if (response) {
-      alert("Comment created successfully");
+  /** yeni yorum ekle */
+  const handleAddComment = async () => {
+    if (!newComment.trim()) return;
+    setSending(true);
+    try {
+      const res = await fetch(`/api/posts/${post_id}/comments`, {
+        method: "POST",
+        body: JSON.stringify({ text: newComment }),
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!res.ok) throw new Error();
+      const saved = await res.json();
+      setCommentList((c) => [...c, saved]);
+      setComments((c) => c + 1);
+      setNewComment("");
+      alert("Yorum başarıyla gönderildi ✔️");
+    } catch (_) {
+      alert("Yorum gönderilirken hata oluştu ❌");
+    } finally {
+      setSending(false);
     }
-    else {
-      alert("Failed to create comment");
-    }
-  }
-  
-const BaseURL = "http://127.0.0.1:8000"
-const profilePicUrl = BaseURL + socialUser?.profile_picture_url
+  };
 
-  return <Card>
-      <CardHeader className="border-0 pb-0">
-        <div className="d-flex align-items-center justify-content-between">
-          <div className="d-flex align-items-center">
-            <div className="avatar me-2">
-              {<span role="button">
-                  
-                  <img className="avatar-img rounded-circle" src={image} alt={""} />
-                </span>}
-            </div>
-
-            <div>
-              <div className="nav nav-divider">
-                <h6 className="nav-item card-title mb-0">
-                  
-                  {/* <span role="button">{socialUser?.name} </span> */}
-                </h6>
-                {/* <span className="nav-item small"> {timeSince(createdAt)}</span> */}
-              </div>
-              <p className="mb-0 small">{name}</p>
-              <p className="mb-0 small">{new Date(date).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-              })} {new Date(date).toLocaleTimeString('en-US', {
-                hour: '2-digit',
-                minute: '2-digit'
-              })}</p>
-            </div>
+  return (
+    <>
+      {/* Ana kart */}
+      <Card className="mb-4">
+        <CardHeader className="d-flex align-items-center border-0 pb-0">
+          <img
+            src={image}
+            alt="avatar"
+            className="avatar-img rounded-circle me-2"
+            style={{ width: 40, height: 40 }}
+          />
+          <div className="flex-grow-1">
+            <h6 className="mb-0">{name}</h6>
+            <small className="text-muted">
+              {new Date(date).toLocaleString()}
+            </small>
           </div>
-          {/* <ActionMenu name={socialUser?.name} /> */}
-        </div>
-      </CardHeader>
-
-      <CardBody>
-      <h3 className="mb-0">{title}</h3>
-      {/* {caption && <p>{caption}</p>} */}
-      {desc && <p>{desc}</p>}
-
-        {/* {image && <img className="card-img" src={image} alt="Post" />} */}
-
-        {/* {photos && <div className="d-flex justify-content-between">
-            <Row className="g-3">
-              <Col xs={6}>
-                <GlightBox className="h-100" href={postImg3} data-gallery="image-popup">
-                  <img className="rounded img-fluid" src={postImg3} alt="Image" />
-                </GlightBox>
-              </Col>
-              <Col xs={6}>
-                <GlightBox href={postImg1} data-glightbox data-gallery="image-popup">
-                  <img className="rounded img-fluid" src={postImg1} alt="Image" />
-                </GlightBox>
-                <div className="position-relative bg-dark mt-3 rounded">
-                  <div className="hover-actions-item position-absolute top-50 start-50 translate-middle z-index-9">
-                    <Link className="btn btn-link text-white" to="">
-                      
-                      View all
-                    </Link>
-                  </div>
-                  <GlightBox href={postImg2} data-glightbox data-gallery="image-popup">
-                    <img className="img-fluid opacity-50 rounded" src={postImg2} alt="image" />
-                  </GlightBox>
-                </div>
-              </Col>
-            </Row>
-          </div>} */}
-        {/* {isVideo && <VideoPlayer />} */}
-        <ul className="nav nav-stack py-3 small">
-          <li className="nav-item">
-            <Link className="nav-link active icons-center" to="" data-bs-container="body" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="true" data-bs-custom-class="tooltip-text-start" data-bs-title="Frances Guerrero<br> Lori Stevens<br> Billy Vasquez<br> Judy Nguyen<br> Larry Lawson<br> Amanda Reed<br> Louis Crawford">
-              
-              <BsHandThumbsUpFill size={18} className="pe-1" />
-              {/* Liked ({likesCount}) */}
-            </Link>
-          </li>
-          <li className="nav-item">
-          <ModalComponent button={ <Link className="nav-link icons-center" to="">
-              
-              <BsChatFill size={18} className="pe-1" />
-              {/* Comments ({commentsCount}) */}
-            </Link>} title={'Yorumlar'} key={post_id}>
-              <ul className="comment-wrap list-unstyled">
-              {comment.length > 0 ? comment?.map(comment => (
-                  <CommentItem {...comment} key={comment.id}></CommentItem>
-              )):(<div className='text-center items-center'>Yorum bulunamadı. İlk yorumu yapan sen ol!</div>)}
-            </ul>
-            </ModalComponent>
-          </li>
-
-          <Dropdown className="nav-item ms-sm-auto">
-            <DropdownToggle as="a" className="nav-link mb-0 content-none icons-center cursor-pointer" id="cardShareAction" data-bs-toggle="dropdown" aria-expanded="false">
-              <BsReplyFill size={16} className="flip-horizontal ps-1" />
-              Share (3)
+          <Dropdown>
+            <DropdownToggle
+              as="a"
+              className="text-secondary btn btn-secondary-soft-hover py-1 px-2 content-none"
+            >
+              <BsReplyFill />
             </DropdownToggle>
-
-            <DropdownMenu className="dropdown-menu-end" aria-labelledby="cardShareAction">
-              <li>
-                <DropdownItem>
-                  
-                  <BsEnvelope size={22} className="fa-fw pe-2" />
-                  Send via Direct Message
-                </DropdownItem>
-              </li>
-              <li>
-                <DropdownItem>
-                  
-                  <BsBookmarkCheck size={22} className="fa-fw pe-2" />
-                  Bookmark
-                </DropdownItem>
-              </li>
-              <li>
-                <DropdownItem>
-                  
-                  <BsLink size={22} className="fa-fw pe-2" />
-                  Copy link to post
-                </DropdownItem>
-              </li>
-              <li>
-                <DropdownItem>
-                  
-                  <BsShare size={22} className="fa-fw pe-2" />
-                  Share post via …
-                </DropdownItem>
-              </li>
-              <li>
-                <DropdownDivider />
-              </li>
-              <li>
-                <DropdownItem>
-                  
-                  <BsPencilSquare size={22} className="fa-fw pe-2" />
-                  Share to News Feed
-                </DropdownItem>
-              </li>
+            <DropdownMenu className="dropdown-menu-end">
+              <DropdownItem>
+                <BsBookmark size={18} className="pe-2" /> Kaydet
+              </DropdownItem>
+              <DropdownItem>
+                <BsEnvelope size={18} className="pe-2" /> Mesaj Gönder
+              </DropdownItem>
+              <DropdownDivider />
+              <DropdownItem>
+                <BsLink size={18} className="pe-2" /> Bağlantıyı kopyala
+              </DropdownItem>
+              <DropdownItem>
+                <BsShare size={18} className="pe-2" /> Paylaş…
+              </DropdownItem>
             </DropdownMenu>
           </Dropdown>
-        </ul>
-        { <>
-            <div className="d-flex mb-3">
-              <div className="avatar avatar-xs me-2">
-                <span role="button">
+        </CardHeader>
 
-                  <img className="avatar-img rounded-circle" src={profilePicUrl} alt="" />
-                </span>
+        <CardBody>
+          <h5>{title}</h5>
+          <p>{desc}</p>
+        </CardBody>
+
+        <CardFooter className="d-flex gap-4">
+          <button
+            onClick={toggleLike}
+            className="btn btn-link p-0 d-flex align-items-center"
+          >
+            {liked ? <BsHeartFill size={18} /> : <BsHeart size={18} />}
+            <span className="ms-1">{likes}</span>
+          </button>
+
+          <button
+            onClick={openComments}
+            className="btn btn-link p-0 d-flex align-items-center"
+          >
+            <BsChatFill size={18} />
+            <span className="ms-1">{comments}</span>
+          </button>
+        </CardFooter>
+      </Card>
+
+      {/* Yorum Modal */}
+      <Modal show={showComments} onHide={() => setShowComments(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Yorumlar</Modal.Title>
+        </Modal.Header>
+        <Modal.Body style={{ maxHeight: "60vh", overflowY: "auto" }}>
+          {commentList.length === 0 ? (
+            <p className="text-muted">Henüz yorum yok</p>
+          ) : (
+            commentList.map((c) => (
+              <div key={c.id} className="mb-3">
+                <strong>{c.author_name}</strong>
+                <p className="mb-0">{c.text}</p>
+                <small className="text-muted">
+                  {new Date(c.created_at).toLocaleString()}
+                </small>
               </div>
-
-              <form className="nav nav-item w-100 position-relative">
-                <textarea value={content} onChange={(e)=>setContent(e.target.value)} data-autoresize className="form-control pe-5 bg-light" rows={1} placeholder="Add a comment..." defaultValue={''} />
-                <button className="nav-link bg-transparent px-3 position-absolute top-50 end-0 translate-middle-y border-0" type="button" onClick={() =>handleCreateComment()}>
-                  <BsSendFill />
-                </button>
-              </form>
-            </div>
-            
-            <ul className="comment-wrap list-unstyled">
-              {comment?.map(comment => {
-                if(comment.post==post_id){
-                  <CommentItem {...comment} key={comment.id}></CommentItem>
-                }
-              })}
-            </ul>
-          </>}
-      </CardBody>
-
-      {/* <CardFooter className="border-0 pt-0">{comments && <LoadContentButton name="Load more comments" />}</CardFooter> */}
-    </Card>;
+            ))
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <InputGroup>
+            <Form.Control
+              type="text"
+              placeholder="Yorum yaz…"
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              disabled={sending}
+            />
+            <Button variant="primary" onClick={handleAddComment} disabled={sending || !newComment.trim()}>
+              <BsSend />
+            </Button>
+          </InputGroup>
+        </Modal.Footer>
+      </Modal>
+    </>
+  );
 };
+
 export default PostCard;

@@ -9,10 +9,10 @@ const NotificationDropdown = () => {
   const allNotifications = useFetchData(getAllNotifications);
   return <Dropdown as="li" autoClose="outside" className="nav-item ms-2" drop="down" align="end">
      {/* TODO: fix these */}
-      {/* <DropdownToggle className="content-none nav-link bg-light icon-md btn btn-light p-0">
+      <DropdownToggle className="content-none nav-link bg-light icon-md btn btn-light p-0">
         <span className="badge-notif animation-blink" />
         <BsBellFill size={15} />
-      </DropdownToggle> */}
+      </DropdownToggle>
       <DropdownMenu className="dropdown-animation dropdown-menu-end dropdown-menu-size-md p-0 shadow-lg border-0">
         <Card>
           <CardHeader className="d-flex justify-content-between align-items-center">
